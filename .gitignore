@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Local app data
+.hangeul_design/
+.designpd/
+favorites.json
+
+# Build outputs
+build/
+dist/
+*.spec
+*.exe
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local screenshots and temporary captures
+2026-08-31 154543.jpg
+
+# Reports exported from the app
+HangeulDesign_report.txt
+DesignPD_report.txt
