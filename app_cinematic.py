@@ -2,11 +2,13 @@ import streamlit as st
 
 import app as base_app
 import runtime_quality
+from beginner_mode import render_beginner_panel
 from cinematic_product import (
     CAMERA_MOVE_OPTIONS, HUMAN_PRESENCE_OPTIONS, INTERACTION_OPTIONS, LENS_OPTIONS,
     LIGHTING_OPTIONS as CINEMATIC_LIGHTING_OPTIONS, LOOK_OPTIONS, MODEL_OPTIONS,
     SHOT_OPTIONS, build_cinematic_product_prompt, build_product_plus_human_variant,
 )
+from prompt_compiler import TARGET_IMAGE_MODELS, TARGET_VIDEO_MODELS, compile_image_prompt, compile_video_prompt
 from reference_image import append_reference_to_prompt, has_reference_image, reference_status_text, render_reference_image_uploader
 
 runtime_quality.install(base_app)
@@ -14,21 +16,46 @@ _original_build_prompts = base_app._build_prompts
 _original_build_expert_prompt = base_app._build_expert_prompt
 
 
+def _allow_hangul_text() -> bool:
+    return "한글 타이포그래피" in st.session_state.get("work_mode", "") or bool((st.session_state.get("hangul_text", "") or "").strip())
+
+
+def _compile_image(prompt: str) -> str:
+    return compile_image_prompt(prompt, st.session_state.get("target_image_model", TARGET_IMAGE_MODELS[0]), st.session_state.get("aspect", "1:1"), _allow_hangul_text(), st.session_state.get("hangul_text", ""))
+
+
+def _compile_video(prompt: str) -> str:
+    return compile_video_prompt(prompt, st.session_state.get("target_video_model", TARGET_VIDEO_MODELS[0]), st.session_state.get("aspect", "1:1"))
+
+
 def _build_prompts_with_reference(*args, **kwargs):
     image_prompt, video_prompt, d3_prompt = _original_build_prompts(*args, **kwargs)
-    return append_reference_to_prompt(image_prompt), append_reference_to_prompt(video_prompt), append_reference_to_prompt(d3_prompt)
+    return append_reference_to_prompt(_compile_image(image_prompt)), append_reference_to_prompt(_compile_video(video_prompt)), append_reference_to_prompt(d3_prompt)
 
 
 def _build_expert_with_reference(*args, **kwargs):
     image_prompt, video_prompt, d3_prompt, blueprint = _original_build_expert_prompt(*args, **kwargs)
     if has_reference_image():
         blueprint += "\nReference image: attached reference is active; preserve/apply it according to the selected reference mode."
-    return append_reference_to_prompt(image_prompt), append_reference_to_prompt(video_prompt), append_reference_to_prompt(d3_prompt), blueprint
+    return append_reference_to_prompt(_compile_image(image_prompt)), append_reference_to_prompt(_compile_video(video_prompt)), append_reference_to_prompt(d3_prompt), blueprint
 
 
 def _install_reference_hooks():
     base_app._build_prompts = _build_prompts_with_reference
     base_app._build_expert_prompt = _build_expert_with_reference
+
+
+def render_generator_panel():
+    st.markdown("## 생성 AI 설정")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.selectbox("이미지 생성 AI", TARGET_IMAGE_MODELS, key="target_image_model")
+    with c2:
+        st.selectbox("영상 생성 AI", TARGET_VIDEO_MODELS, key="target_video_model")
+    with c3:
+        st.selectbox("화면비", base_app.ASPECT_OPTIONS, key="aspect")
+    if _allow_hangul_text():
+        st.warning("한글 글자는 생성 모델에 따라 깨질 수 있습니다. 정확한 문구가 중요하면 글자 없는 이미지를 먼저 생성한 뒤 Canva·미리캔버스 등에서 한글을 얹는 방법이 가장 안정적입니다.")
 
 
 def _translate(text: str) -> str:
@@ -44,7 +71,7 @@ def render_cinematic_product_video():
     st.markdown("## Cinematic Product Video (시네마틱 제품 영상)")
     st.caption("쇼트·렌즈·카메라 이동·조명·사람의 제품 사용까지 조합한 광고 영상 프롬프트를 만듭니다.")
     if has_reference_image():
-        st.info(reference_status_text() + " · 제품/인물 정체성 및 영상 연속성 지시가 자동 추가됩니다.")
+        st.info(reference_status_text() + " · 생성 AI에서도 같은 참조 이미지를 프롬프트와 함께 첨부하세요.")
 
     with st.expander("촬영 옵션 설정", expanded=True):
         c1, c2 = st.columns(2)
@@ -98,7 +125,10 @@ def main():
     runtime_quality.reset_variant_counter()
     _install_reference_hooks()
     runtime_quality.render_theme_fix()
+    render_beginner_panel()
+    render_generator_panel()
     render_reference_image_uploader()
+    st.caption("참조 이미지를 사용했다면 실제 생성 AI에서도 같은 이미지를 프롬프트와 함께 첨부하세요.")
     base_app.render_sidebar()
     base_app.render_main()
     render_cinematic_product_video()
