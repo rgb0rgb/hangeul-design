@@ -3,16 +3,19 @@
 ## 1.2.0 - in development
 
 - Added three-question beginner auto-configuration for subject, destination, and desired visual feel.
+- Made beginner auto-configuration render-order independent with a pending-settings queue and rerun application step.
 - Added target image compiler for ChatGPT/Gemini, Midjourney, and Stable Diffusion/FLUX.
 - Added main video prompt compiler for General, Veo, Sora, Runway, and Kling.
 - Added direct aspect-ratio selection and tool-specific aspect output.
 - Fixed expert `avoid ...` negative clauses so real expert negatives are moved into Midjourney/SD negative controls instead of falling back to generic defaults.
-- Made negative extraction independent of reference-image directives by compiling before reference instructions are appended.
+- Made reference-image directives compatible with negative extraction and ensured Midjourney `--ar` / `--no` parameters remain at the end of the final prompt.
 - Fixed Hangul typography conflict with blanket text/letter exclusions while retaining useful malformed-text constraints.
 - Added visible Hangul rendering warning and reliable post-overlay guidance.
-- Unified beginner/compiler controls across the 8504 and 8505 entry points.
-- Added regression tests for expert negatives, reference suffixes, video aspect/model guidance, correction preservation, and one-time runtime wrapper capture.
-- Documented `stop.bat`, `stop_cinematic.bat`, ports, compiler workflow, and reference-image handoff.
+- Unified Hangeul Design and Cinematic Design into one Streamlit application on port 8504 with top-level tabs.
+- Removed the obsolete secondary `app_reference.py`, `run_cinematic.bat`, and `stop_cinematic.bat` entry paths.
+- Updated the launcher to start the unified `app_cinematic.py` entry point.
+- Added regression tests for expert negatives, reference suffixes, video aspect/model guidance, correction preservation, one-time runtime wrapper capture, repeated reruns, and beginner-button state application.
+- CI tests both the declared minimum Streamlit version and the supported dependency set, including real beginner-button interaction through AppTest.
 
 ## 1.1.0 - 2026-09
 
@@ -26,7 +29,7 @@
 - Changed prompt variants to respect explicit camera, lighting, and palette selections; automatic axes vary only when applicable.
 - Added regression tests and CI AppTest coverage.
 - Fixed frozen launcher recursion by using the project virtual-environment Python.
-- Separated Hangeul Design (8504) and Cinematic (8505) ports.
+- Separated Hangeul Design (8504) and Cinematic (8505) ports. This architecture was superseded by the unified v1.2 application.
 
 ## 1.0.0
 
