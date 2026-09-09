@@ -23,7 +23,7 @@ def _python_path(here: str) -> str:
 
 def main():
     here = _project_dir()
-    app = os.path.join(here, "app_reference.py")
+    app = os.path.join(here, "app_cinematic.py")
     if not os.path.exists(app):
         raise FileNotFoundError(f"App entry point not found: {app}")
     python_exe = _python_path(here)
