@@ -2,6 +2,7 @@ import streamlit as st
 
 import app as base_app
 import runtime_quality
+from beginner_mode import render_beginner_panel
 from prompt_compiler import TARGET_IMAGE_MODELS, compile_image_prompt
 from reference_image import append_reference_to_prompt, render_reference_image_uploader
 
@@ -45,20 +46,20 @@ def install_reference_hooks():
 
 
 def render_target_model_panel():
-    st.markdown("## 1. 사용할 이미지 AI 선택")
+    st.markdown("## 사용할 이미지 AI")
     st.selectbox(
         "대상 이미지 생성 도구",
         TARGET_IMAGE_MODELS,
         key="target_image_model",
         help="선택한 도구에 맞게 화면비와 네거티브 프롬프트 형식을 자동 변환합니다.",
     )
-    st.caption("같은 기획 내용이라도 Midjourney, Stable Diffusion/FLUX, ChatGPT/Gemini에 맞는 형식으로 자동 변환됩니다.")
+    st.caption("같은 기획이라도 선택한 생성 AI에 맞는 문법으로 자동 변환합니다.")
 
 
 def render_reference_panel():
     st.markdown("---")
     render_reference_image_uploader()
-    st.caption("이미지를 첨부한 뒤 아래 Hangeul Design에서 기획안을 생성하면 이미지·영상·3D 프롬프트에 참조 이미지 제어문이 자동 적용됩니다.")
+    st.caption("참조 이미지를 사용했다면 생성 AI에서도 이 프롬프트와 같은 이미지를 함께 첨부하세요.")
 
 
 def main():
@@ -67,6 +68,7 @@ def main():
     runtime_quality.reset_variant_counter()
     install_reference_hooks()
     runtime_quality.render_theme_fix()
+    render_beginner_panel()
     render_target_model_panel()
     render_reference_panel()
     base_app.render_sidebar()
