@@ -18,17 +18,23 @@ jobs:
           python -m pip install "streamlit==1.55.0" "pytest>=8,<9"
       - name: Regression tests at minimum
         run: python -m pytest -q
-      - name: AppTest twice at minimum
+      - name: Unified app interaction test at minimum
         run: |
           python - <<'PY'
           from streamlit.testing.v1 import AppTest
-          for filename in ("app_reference.py", "app_cinematic.py"):
-              at = AppTest.from_file(filename, default_timeout=20)
-              at.run()
-              assert not at.exception, (filename, at.exception)
-              at.run()
-              assert not at.exception, (filename, at.exception)
-              print(filename, "two-run AppTest OK")
+          at = AppTest.from_file("app_cinematic.py", default_timeout=20)
+          at.run()
+          assert not at.exception, at.exception
+          at.text_input(key="beginner_subject").set_value("햄치즈 베이글 신메뉴")
+          at.selectbox(key="beginner_destination").set_value("릴스 / 틱톡 / 유튜브 쇼츠")
+          at.button(key="beginner_apply").click().run()
+          assert not at.exception, at.exception
+          assert at.session_state["preset"] == "숏폼 바이럴"
+          assert at.session_state["work_mode"] == "숏폼 영상 (Short-form Video)"
+          assert at.session_state["aspect"] == "9:16"
+          at.run()
+          assert not at.exception, at.exception
+          print("unified beginner-click AppTest OK")
           PY
 
   supported-latest:
@@ -44,15 +50,21 @@ jobs:
           python -m pip install -r requirements.txt
       - name: Regression tests
         run: python -m pytest -q
-      - name: AppTest twice
+      - name: Unified app interaction test
         run: |
           python - <<'PY'
           from streamlit.testing.v1 import AppTest
-          for filename in ("app_reference.py", "app_cinematic.py"):
-              at = AppTest.from_file(filename, default_timeout=20)
-              at.run()
-              assert not at.exception, (filename, at.exception)
-              at.run()
-              assert not at.exception, (filename, at.exception)
-              print(filename, "two-run AppTest OK")
+          at = AppTest.from_file("app_cinematic.py", default_timeout=20)
+          at.run()
+          assert not at.exception, at.exception
+          at.text_input(key="beginner_subject").set_value("햄치즈 베이글 신메뉴")
+          at.selectbox(key="beginner_destination").set_value("릴스 / 틱톡 / 유튜브 쇼츠")
+          at.button(key="beginner_apply").click().run()
+          assert not at.exception, at.exception
+          assert at.session_state["preset"] == "숏폼 바이럴"
+          assert at.session_state["work_mode"] == "숏폼 영상 (Short-form Video)"
+          assert at.session_state["aspect"] == "9:16"
+          at.run()
+          assert not at.exception, at.exception
+          print("unified beginner-click AppTest OK")
           PY
