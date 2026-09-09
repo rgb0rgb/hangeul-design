@@ -17,22 +17,16 @@ if errorlevel 1 (
 
 netstat -ano | findstr ":%PORT%" | findstr "LISTENING" >nul 2>nul
 if not errorlevel 1 (
-    echo [ERROR] Port %PORT% is already in use. Stop the existing app first.
+    echo [ERROR] Port %PORT% is already in use. Run stop.bat first.
     pause
     exit /b 1
 )
 
-start "Hangeul Design Server" /B venv\Scripts\python -m streamlit run app_reference.py --server.address localhost --server.port %PORT% --server.headless true
-for /L %%I in (1,1,30) do (
-    powershell -NoProfile -Command "try { $r=Invoke-WebRequest -UseBasicParsing -TimeoutSec 1 http://localhost:%PORT%/_stcore/health; if($r.StatusCode -eq 200){exit 0}else{exit 1} } catch { exit 1 }" >nul 2>nul
-    if not errorlevel 1 goto ready
-    timeout /t 1 /nobreak >nul
-)
-goto fail
+start "Hangeul Design" /MIN "%CD%\venv\Scripts\python.exe" -m streamlit run "%CD%\app_cinematic.py" --server.address localhost --server.port %PORT% --server.headless false
+if errorlevel 1 goto fail
 
-:ready
-start "" "http://localhost:%PORT%"
-echo Hangeul Design ready: http://localhost:%PORT%
+echo Hangeul Design starting on http://localhost:%PORT%
+echo One app: Hangeul Design / Cinematic Design
 endlocal
 exit /b 0
 
