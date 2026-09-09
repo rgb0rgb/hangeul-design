@@ -5,40 +5,54 @@ on:
   pull_request:
 
 jobs:
-  test:
+  minimum-streamlit:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install declared minimum
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "streamlit==1.55.0" "pytest>=8,<9"
+      - name: Regression tests at minimum
+        run: python -m pytest -q
+      - name: AppTest twice at minimum
+        run: |
+          python - <<'PY'
+          from streamlit.testing.v1 import AppTest
+          for filename in ("app_reference.py", "app_cinematic.py"):
+              at = AppTest.from_file(filename, default_timeout=20)
+              at.run()
+              assert not at.exception, (filename, at.exception)
+              at.run()
+              assert not at.exception, (filename, at.exception)
+              print(filename, "two-run AppTest OK")
+          PY
 
-      - name: Install dependencies
+  supported-latest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install supported dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-
-      - name: Run regression tests
+      - name: Regression tests
         run: python -m pytest -q
-
-      - name: Streamlit AppTest - Hangeul Design
+      - name: AppTest twice
         run: |
           python - <<'PY'
           from streamlit.testing.v1 import AppTest
-          at = AppTest.from_file("app_reference.py", default_timeout=15).run()
-          assert not at.exception, at.exception
-          print("app_reference AppTest OK")
-          PY
-
-      - name: Streamlit AppTest - Cinematic
-        run: |
-          python - <<'PY'
-          from streamlit.testing.v1 import AppTest
-          at = AppTest.from_file("app_cinematic.py", default_timeout=15).run()
-          assert not at.exception, at.exception
-          print("app_cinematic AppTest OK")
+          for filename in ("app_reference.py", "app_cinematic.py"):
+              at = AppTest.from_file(filename, default_timeout=20)
+              at.run()
+              assert not at.exception, (filename, at.exception)
+              at.run()
+              assert not at.exception, (filename, at.exception)
+              print(filename, "two-run AppTest OK")
           PY
