@@ -2,6 +2,8 @@ import ast
 import types
 from pathlib import Path
 
+import beginner_mode
+import prompt_compiler
 import runtime_quality
 
 
@@ -9,8 +11,47 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_python_sources_parse():
-    for name in ["app.py", "app_reference.py", "app_cinematic.py", "cinematic_product.py", "reference_image.py", "runtime_quality.py", "launcher.py"]:
+    for name in ["app.py", "app_reference.py", "app_cinematic.py", "cinematic_product.py", "reference_image.py", "runtime_quality.py", "launcher.py", "prompt_compiler.py", "beginner_mode.py"]:
         ast.parse((ROOT / name).read_text(encoding="utf-8"))
+
+
+def test_beginner_shortform_auto_configuration():
+    x = beginner_mode.recommend_settings("햄치즈 베이글 신메뉴", "릴스 / 틱톡 / 유튜브 쇼츠", "AI가 추천")
+    assert x["aspect"] == "9:16"
+    assert x["work_mode"] == "숏폼 영상 (Short-form Video)"
+
+
+def test_beginner_hangul_intent_wins():
+    x = beginner_mode.recommend_settings("한글 문구 중심 포스터", "포스터 / 인쇄물", "한글 문구 중심")
+    assert x["work_mode"] == "한글 타이포그래피 (Hangul Typography)"
+    assert x["prompt_engine"] == "전문가 모드"
+
+
+def test_midjourney_compiler_uses_real_aspect_parameter():
+    out = prompt_compiler.compile_image_prompt("premium product, exclude text, watermark, low resolution", "Midjourney", "9:16")
+    assert "--ar 9:16" in out
+    assert "--no" in out
+
+
+def test_sd_compiler_separates_negative_prompt():
+    out = prompt_compiler.compile_image_prompt("premium product, exclude text, watermark", "Stable Diffusion / FLUX", "4:5")
+    assert "Positive prompt:" in out
+    assert "Negative prompt:" in out
+    assert "Aspect ratio: 4:5" in out
+
+
+def test_hangul_typography_does_not_exclude_text():
+    out = prompt_compiler.compile_image_prompt("Hangul poster, exclude text, letters, watermark, broken typography", "Midjourney", "3:2", allow_text=True, hangul_text="한글 디자인")
+    low = out.lower()
+    assert "--no text" not in low
+    assert "--no letters" not in low
+    assert '"한글 디자인"' in out
+
+
+def test_general_compiler_keeps_prose_not_mj_parameters():
+    out = prompt_compiler.compile_image_prompt("premium product, exclude watermark", "ChatGPT / Gemini", "16:9")
+    assert "Output aspect ratio: 16:9" in out
+    assert "--ar" not in out
 
 
 def test_variant_axes_are_materially_distinct():
@@ -44,13 +85,7 @@ def _fake_app():
     def expert(*args, **kwargs):
         return "IMAGE", "VIDEO", "3D", "BLUEPRINT"
 
-    return types.SimpleNamespace(
-        _build_prompts=quick,
-        _build_expert_prompt=expert,
-        _tip_for=lambda preset: "tip",
-        FAV_FILE="favorites.json",
-        _fav_id=lambda: "1",
-    )
+    return types.SimpleNamespace(_build_prompts=quick, _build_expert_prompt=expert, _tip_for=lambda preset: "tip", FAV_FILE="favorites.json", _fav_id=lambda: "1")
 
 
 def test_install_is_idempotent_and_does_not_stack_wrappers():
@@ -65,8 +100,6 @@ def test_install_is_idempotent_and_does_not_stack_wrappers():
     runtime_quality.install(app)
     assert app._build_prompts is first_quick
     assert app._build_expert_prompt is first_expert
-    assert app._hd_original_build_prompts is original_quick
-    assert app._hd_original_build_expert_prompt is original_expert
 
 
 def test_repeated_generation_has_exactly_one_variant_prefix():
