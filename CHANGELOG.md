@@ -7,6 +7,8 @@
 - Added target image compiler for ChatGPT/Gemini, Midjourney, and Stable Diffusion/FLUX.
 - Added main video prompt compiler for General, Veo, Sora, Runway, and Kling.
 - Added direct aspect-ratio selection and tool-specific aspect output.
+- Added symptom-based result correction for face/hands, broken text, dark exposure, product identity drift, composition, and premium finish.
+- Made result corrections idempotent, preserved Midjourney terminal parameters and SD/FLUX prompt sections, and rerun immediately after a successful correction so displayed/copyable prompts cannot lag behind session state.
 - Fixed expert `avoid ...` negative clauses so real expert negatives are moved into Midjourney/SD negative controls instead of falling back to generic defaults.
 - Made reference-image directives compatible with negative extraction and ensured Midjourney `--ar` / `--no` parameters remain at the end of the final prompt.
 - Fixed Hangul typography conflict with blanket text/letter exclusions while retaining useful malformed-text constraints.
@@ -14,7 +16,7 @@
 - Unified Hangeul Design and Cinematic Design into one Streamlit application on port 8504 with top-level tabs.
 - Removed the obsolete secondary `app_reference.py`, `run_cinematic.bat`, and `stop_cinematic.bat` entry paths.
 - Updated the launcher to start the unified `app_cinematic.py` entry point.
-- Added regression tests for expert negatives, reference suffixes, video aspect/model guidance, correction preservation, one-time runtime wrapper capture, repeated reruns, and beginner-button state application.
+- Added regression tests for expert negatives, reference suffixes, video aspect/model guidance, correction preservation/idempotency, one-time runtime wrapper capture, repeated reruns, and beginner-button state application.
 - CI tests both the declared minimum Streamlit version and the supported dependency set, including real beginner-button interaction through AppTest.
 
 ## 1.1.0 - 2026-09
