@@ -13,7 +13,32 @@ from cinematic_product import (
     build_cinematic_product_prompt,
     build_product_plus_human_variant,
 )
-from reference_image import append_reference_to_prompt, has_reference_image, reference_status_text
+from reference_image import (
+    append_reference_to_prompt,
+    has_reference_image,
+    reference_status_text,
+    render_reference_image_uploader,
+)
+
+_original_build_prompts = base_app._build_prompts
+_original_build_expert_prompt = base_app._build_expert_prompt
+
+
+def _build_prompts_with_reference(*args, **kwargs):
+    image_prompt, video_prompt, d3_prompt = _original_build_prompts(*args, **kwargs)
+    return append_reference_to_prompt(image_prompt), append_reference_to_prompt(video_prompt), append_reference_to_prompt(d3_prompt)
+
+
+def _build_expert_with_reference(*args, **kwargs):
+    image_prompt, video_prompt, d3_prompt, blueprint = _original_build_expert_prompt(*args, **kwargs)
+    if has_reference_image():
+        blueprint += "\nReference image: attached reference is active; preserve/apply it according to the selected reference mode."
+    return append_reference_to_prompt(image_prompt), append_reference_to_prompt(video_prompt), append_reference_to_prompt(d3_prompt), blueprint
+
+
+def _install_reference_hooks():
+    base_app._build_prompts = _build_prompts_with_reference
+    base_app._build_expert_prompt = _build_expert_with_reference
 
 
 def _translate(text: str) -> str:
@@ -27,58 +52,28 @@ def _translate(text: str) -> str:
 def render_cinematic_product_video():
     st.markdown("---")
     st.markdown("## Cinematic Product Video (시네마틱 제품 영상)")
-    st.caption(
-        "제품을 단순히 움직이는 프롬프트가 아니라, 쇼트·렌즈·카메라 이동·조명·사람의 제품 사용까지 조합한 광고 영상 프롬프트를 만듭니다."
-    )
+    st.caption("제품을 단순히 움직이는 프롬프트가 아니라, 쇼트·렌즈·카메라 이동·조명·사람의 제품 사용까지 조합한 광고 영상 프롬프트를 만듭니다.")
     if has_reference_image():
         st.info(reference_status_text() + " · 제품/인물 정체성 및 영상 연속성 지시가 자동 추가됩니다.")
 
     with st.expander("촬영 옵션 설정", expanded=True):
         c1, c2 = st.columns(2)
         with c1:
-            product_kr = st.text_input(
-                "제품 / Product",
-                key="cin_product",
-                placeholder="예: 검은색 프리미엄 스마트워치",
-            )
-            environment_kr = st.text_input(
-                "배경 / Environment",
-                key="cin_environment",
-                placeholder="예: 현대적인 건축 공간, 따뜻한 저녁 조명",
-            )
+            product_kr = st.text_input("제품 / Product", key="cin_product", placeholder="예: 검은색 프리미엄 스마트워치")
+            environment_kr = st.text_input("배경 / Environment", key="cin_environment", placeholder="예: 현대적인 건축 공간, 따뜻한 저녁 조명")
             shot = st.selectbox("Shot / 쇼트", list(SHOT_OPTIONS.keys()), key="cin_shot")
-            camera_move = st.selectbox(
-                "Camera Movement / 카메라 이동",
-                list(CAMERA_MOVE_OPTIONS.keys()),
-                key="cin_camera_move",
-            )
+            camera_move = st.selectbox("Camera Movement / 카메라 이동", list(CAMERA_MOVE_OPTIONS.keys()), key="cin_camera_move")
             lens = st.selectbox("Lens / 렌즈", list(LENS_OPTIONS.keys()), key="cin_lens")
         with c2:
-            lighting = st.selectbox(
-                "Lighting / 조명",
-                list(CINEMATIC_LIGHTING_OPTIONS.keys()),
-                key="cin_lighting",
-            )
+            lighting = st.selectbox("Lighting / 조명", list(CINEMATIC_LIGHTING_OPTIONS.keys()), key="cin_lighting")
             look = st.selectbox("Look / 광고 룩", list(LOOK_OPTIONS.keys()), key="cin_look")
-            human = st.selectbox(
-                "Human Presence / 사람 등장",
-                list(HUMAN_PRESENCE_OPTIONS.keys()),
-                key="cin_human",
-            )
-            interaction = st.selectbox(
-                "Human Interaction / 제품과 사람의 행동",
-                list(INTERACTION_OPTIONS.keys()),
-                key="cin_interaction",
-            )
+            human = st.selectbox("Human Presence / 사람 등장", list(HUMAN_PRESENCE_OPTIONS.keys()), key="cin_human")
+            interaction = st.selectbox("Human Interaction / 제품과 사람의 행동", list(INTERACTION_OPTIONS.keys()), key="cin_interaction")
             model = st.selectbox("Target Model / 대상 모델", MODEL_OPTIONS, key="cin_model")
             duration = st.slider("Duration / 길이(초)", 4, 15, 8, key="cin_duration")
 
         use_main_brand = st.checkbox("기존 Hangeul Design 브랜드명 사용", value=True, key="cin_use_brand")
-        custom_brand = st.text_input(
-            "별도 브랜드명(옵션)",
-            key="cin_brand_custom",
-            placeholder="비워두면 기존 브랜드 설정 사용",
-        )
+        custom_brand = st.text_input("별도 브랜드명(옵션)", key="cin_brand_custom", placeholder="비워두면 기존 브랜드 설정 사용")
 
     generate = st.button("시네마틱 제품 영상 프롬프트 생성", type="primary", use_container_width=True)
 
@@ -93,33 +88,8 @@ def render_cinematic_product_video():
         if not brand and use_main_brand:
             brand = (st.session_state.get("brand") or "").strip()
 
-        main_prompt = build_cinematic_product_prompt(
-            product=product_en,
-            environment=environment_en,
-            shot=shot,
-            camera_move=camera_move,
-            lens=lens,
-            lighting=lighting,
-            look=look,
-            human_presence=human,
-            interaction=interaction,
-            model=model,
-            duration=duration,
-            brand=brand,
-        )
-        human_variant = build_product_plus_human_variant(
-            product=product_en,
-            environment=environment_en,
-            shot=shot if human != "없음 (Product Only)" else "오버숄더 (Over-the-Shoulder)",
-            camera_move=camera_move,
-            lens=lens,
-            lighting=lighting,
-            look=look,
-            interaction=interaction,
-            model=model,
-            duration=duration,
-            brand=brand,
-        )
+        main_prompt = build_cinematic_product_prompt(product=product_en, environment=environment_en, shot=shot, camera_move=camera_move, lens=lens, lighting=lighting, look=look, human_presence=human, interaction=interaction, model=model, duration=duration, brand=brand)
+        human_variant = build_product_plus_human_variant(product=product_en, environment=environment_en, shot=shot if human != "없음 (Product Only)" else "오버숄더 (Over-the-Shoulder)", camera_move=camera_move, lens=lens, lighting=lighting, look=look, interaction=interaction, model=model, duration=duration, brand=brand)
         main_prompt = append_reference_to_prompt(main_prompt)
         human_variant = append_reference_to_prompt(human_variant)
 
@@ -137,21 +107,12 @@ def render_cinematic_product_video():
             st.code(st.session_state["cin_last_human"], language="text")
             base_app._clipboard_button("복사", st.session_state["cin_last_human"], key="copy_cinematic_human")
 
-        st.download_button(
-            "두 프롬프트 TXT 저장",
-            data=(
-                "[CINEMATIC PRODUCT VIDEO]\n"
-                + st.session_state["cin_last_main"]
-                + "\n\n[PRODUCT + HUMAN VARIANT]\n"
-                + st.session_state["cin_last_human"]
-            ).encode("utf-8"),
-            file_name="HangeulDesign_CinematicProductVideo.txt",
-            mime="text/plain",
-            use_container_width=True,
-        )
+        st.download_button("두 프롬프트 TXT 저장", data=("[CINEMATIC PRODUCT VIDEO]\n" + st.session_state["cin_last_main"] + "\n\n[PRODUCT + HUMAN VARIANT]\n" + st.session_state["cin_last_human"]).encode("utf-8"), file_name="HangeulDesign_CinematicProductVideo.txt", mime="text/plain", use_container_width=True)
 
 
 def main():
+    _install_reference_hooks()
+    render_reference_image_uploader()
     base_app.main()
     render_cinematic_product_video()
 
