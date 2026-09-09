@@ -11,6 +11,7 @@ Hangeul Design은 이미지, 영상, 3D 생성형 AI 작업을 위한 **한국�
 - **이미지 생성 AI 컴파일러:** ChatGPT/Gemini, Midjourney, Stable Diffusion/FLUX에 맞춰 프롬프트 문법을 변환합니다.
 - **영상 생성 AI 컴파일러:** General, Veo, Sora, Runway, Kling용 실행 지시와 화면비를 메인 영상 프롬프트에 적용합니다.
 - **화면비 직접 선택:** 1:1, 16:9, 9:16, 4:5, 3:2, 21:9를 직접 바꿀 수 있습니다.
+- **증상 기반 결과 보정:** `얼굴/손이 이상해요`, `한글/글자가 깨져요`, `너무 어두워요`, `제품이 원본과 달라요`, `구도가 별로예요`, `더 고급스럽게` 중 문제를 고르면 현재 결과 프롬프트를 자동 보정합니다. 같은 보정은 중복 삽입하지 않으며 Midjourney 말미 파라미터와 SD/FLUX 블록 구조를 보존합니다.
 - **한글 타이포그래피 충돌 방지:** 의도한 한글이 있을 때 blanket `exclude text/letters` 금지어를 제거합니다.
 - **한글 기대 관리:** 정확한 문구가 중요하면 글자 없는 비주얼을 생성한 뒤 Canva·미리캔버스 등에서 한글을 얹는 방법을 안내합니다.
 - **참조 이미지:** 참조 지시를 컴파일러 본문에 포함시킨 뒤 Midjourney의 `--ar/--no` 등 최종 파라미터를 맨 끝에 배치합니다. 실제 생성 AI에서도 같은 이미지를 함께 첨부해야 합니다.
@@ -25,6 +26,7 @@ Hangeul Design은 이미지, 영상, 3D 생성형 AI 작업을 위한 **한국�
 - Cinematic Product Video: 쇼트, 카메라 이동, 렌즈, 조명, 사람 등장·제품 상호작용 기반 영상 프롬프트
 - 컨셉 스파인, 한글 문구, HEX 팔레트, 세트 일관성, 디테일 밀도 제어
 - 생성 개수별 구도·조명·카메라·팔레트 변형
+- 결과 증상 선택을 통한 프롬프트 자동 보정
 - 즐겨찾기/템플릿 로컬 저장 및 재적용
 - 리포트 저장
 
@@ -84,6 +86,7 @@ hangeul-design/
 ├─ app_cinematic.py        # run.bat이 실행하는 단일 통합 진입점
 ├─ beginner_mode.py
 ├─ prompt_compiler.py
+├─ result_assistant.py     # 생성 결과의 증상 기반 보정 UI
 ├─ cinematic_product.py
 ├─ reference_image.py
 ├─ runtime_quality.py
