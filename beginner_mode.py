@@ -23,6 +23,8 @@ VISUAL_GOALS = [
     "한글 문구 중심",
 ]
 
+PENDING_KEY = "_hd_pending_beginner_settings"
+
 
 def recommend_settings(subject: str, destination: str, visual_goal: str) -> Dict[str, object]:
     """Infer a useful first-attempt configuration from three beginner answers."""
@@ -81,17 +83,33 @@ def recommend_settings(subject: str, destination: str, visual_goal: str) -> Dict
 
 
 def apply_recommendation(settings: Dict[str, object], subject: str) -> None:
+    """Apply settings before widget creation. Safe to call at app startup."""
     for key, value in settings.items():
         st.session_state[key] = value
-    st.session_state["subject"] = (subject or "").strip()
+    clean_subject = (subject or "").strip()
+    st.session_state["subject"] = clean_subject
     if st.session_state.get("prompt_engine") == "전문가 모드" and not st.session_state.get("expert_subject"):
-        st.session_state["expert_subject"] = (subject or "").strip()
+        st.session_state["expert_subject"] = clean_subject
+
+
+def queue_recommendation(settings: Dict[str, object], subject: str) -> None:
+    st.session_state[PENDING_KEY] = {
+        "settings": dict(settings),
+        "subject": (subject or "").strip(),
+    }
+
+
+def apply_pending_recommendation() -> bool:
+    """Apply queued beginner settings before any widget-backed keys are instantiated."""
+    pending = st.session_state.pop(PENDING_KEY, None)
+    if not pending:
+        return False
+    apply_recommendation(pending.get("settings") or {}, pending.get("subject") or "")
+    st.session_state["_hd_beginner_applied_message"] = True
+    return True
 
 
 def render_beginner_panel() -> None:
-    # IMPORTANT: render this panel before base_app.render_sidebar(). The Apply button
-    # writes widget-backed session-state keys; Streamlit forbids mutating those keys
-    # after the corresponding sidebar widgets have already been instantiated.
     st.markdown("## 초보자 자동 설정")
     st.caption("세 가지만 답하면 작업 모드·스타일·화면비·조명 등을 먼저 추천합니다. 아래 세부 설정에서 언제든 바꿀 수 있습니다.")
     with st.container(border=True):
@@ -110,5 +128,11 @@ def render_beginner_panel() -> None:
                 st.warning("무엇을 만들지 한 줄만 입력하세요.")
             else:
                 settings = recommend_settings(subject, destination, visual_goal)
-                apply_recommendation(settings, subject)
-                st.success(f"자동 설정 완료 · {settings['work_mode']} · {settings['image_style']} · {settings['aspect']}")
+                queue_recommendation(settings, subject)
+                st.rerun()
+
+        if st.session_state.pop("_hd_beginner_applied_message", False):
+            st.success(
+                f"자동 설정 완료 · {st.session_state.get('work_mode', '')} · "
+                f"{st.session_state.get('image_style', '')} · {st.session_state.get('aspect', '')}"
+            )
