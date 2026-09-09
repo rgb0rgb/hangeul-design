@@ -19,20 +19,20 @@ netstat -ano | findstr ":%PORT%" | findstr "LISTENING" >nul 2>nul
 if not errorlevel 1 (
     echo.
     echo [INFO] Hangeul Design is already running or port %PORT% is already in use.
-    echo Open this address in your browser:
     echo http://localhost:%PORT%
     echo.
+    start "" "http://localhost:%PORT%"
     pause
     endlocal
     exit /b 0
 )
 
 echo.
-echo Starting Hangeul Design...
-echo Open this address in your browser:
+echo Starting Hangeul Design with Reference Image Support...
 echo http://localhost:%PORT%
 echo.
-venv\Scripts\python -m streamlit run app.py --server.address localhost --server.port %PORT%
+start "" "http://localhost:%PORT%"
+venv\Scripts\python -m streamlit run app_reference.py --server.address localhost --server.port %PORT% --server.headless true
 if errorlevel 1 goto fail
 endlocal
 exit /b 0
