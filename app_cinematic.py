@@ -21,23 +21,42 @@ def _allow_hangul_text() -> bool:
 
 
 def _compile_image(prompt: str) -> str:
-    return compile_image_prompt(prompt, st.session_state.get("target_image_model", TARGET_IMAGE_MODELS[0]), st.session_state.get("aspect", "1:1"), _allow_hangul_text(), st.session_state.get("hangul_text", ""))
+    return compile_image_prompt(
+        prompt,
+        st.session_state.get("target_image_model", TARGET_IMAGE_MODELS[0]),
+        st.session_state.get("aspect", "1:1"),
+        _allow_hangul_text(),
+        st.session_state.get("hangul_text", ""),
+    )
 
 
 def _compile_video(prompt: str) -> str:
-    return compile_video_prompt(prompt, st.session_state.get("target_video_model", TARGET_VIDEO_MODELS[0]), st.session_state.get("aspect", "1:1"))
+    return compile_video_prompt(
+        prompt,
+        st.session_state.get("target_video_model", TARGET_VIDEO_MODELS[0]),
+        st.session_state.get("aspect", "1:1"),
+    )
 
 
 def _build_prompts_with_reference(*args, **kwargs):
     image_prompt, video_prompt, d3_prompt = _original_build_prompts(*args, **kwargs)
-    return append_reference_to_prompt(_compile_image(image_prompt)), append_reference_to_prompt(_compile_video(video_prompt)), append_reference_to_prompt(d3_prompt)
+    return (
+        append_reference_to_prompt(_compile_image(image_prompt)),
+        append_reference_to_prompt(_compile_video(video_prompt)),
+        append_reference_to_prompt(d3_prompt),
+    )
 
 
 def _build_expert_with_reference(*args, **kwargs):
     image_prompt, video_prompt, d3_prompt, blueprint = _original_build_expert_prompt(*args, **kwargs)
     if has_reference_image():
         blueprint += "\nReference image: attached reference is active; preserve/apply it according to the selected reference mode."
-    return append_reference_to_prompt(_compile_image(image_prompt)), append_reference_to_prompt(_compile_video(video_prompt)), append_reference_to_prompt(d3_prompt), blueprint
+    return (
+        append_reference_to_prompt(_compile_image(image_prompt)),
+        append_reference_to_prompt(_compile_video(video_prompt)),
+        append_reference_to_prompt(d3_prompt),
+        blueprint,
+    )
 
 
 def _install_reference_hooks():
@@ -67,9 +86,8 @@ def _translate(text: str) -> str:
 
 
 def render_cinematic_product_video():
-    st.markdown("---")
-    st.markdown("## Cinematic Product Video (시네마틱 제품 영상)")
-    st.caption("쇼트·렌즈·카메라 이동·조명·사람의 제품 사용까지 조합한 광고 영상 프롬프트를 만듭니다.")
+    st.markdown("## 시네마틱 디자인")
+    st.caption("쇼트·렌즈·카메라 이동·조명·사람의 제품 사용까지 조합한 전문 광고 영상 프롬프트를 만듭니다.")
     if has_reference_image():
         st.info(reference_status_text() + " · 생성 AI에서도 같은 참조 이미지를 프롬프트와 함께 첨부하세요.")
 
@@ -88,8 +106,8 @@ def render_cinematic_product_video():
             interaction = st.selectbox("Human Interaction / 제품과 사람의 행동", list(INTERACTION_OPTIONS.keys()), key="cin_interaction")
             model = st.selectbox("Target Model / 대상 모델", MODEL_OPTIONS, key="cin_model")
             duration = st.slider("Duration / 길이(초)", 4, 15, 8, key="cin_duration")
-        use_main_brand = st.checkbox("기존 Hangeul Design 브랜드명 사용", value=True, key="cin_use_brand")
-        custom_brand = st.text_input("별도 브랜드명(옵션)", key="cin_brand_custom", placeholder="비워두면 기존 브랜드 설정 사용")
+        use_main_brand = st.checkbox("한글 디자인의 브랜드명 사용", value=True, key="cin_use_brand")
+        custom_brand = st.text_input("별도 브랜드명(옵션)", key="cin_brand_custom", placeholder="비워두면 한글 디자인 브랜드 설정 사용")
 
     generate = st.button("시네마틱 제품 영상 프롬프트 생성", type="primary", use_container_width=True)
     if generate:
@@ -101,8 +119,17 @@ def render_cinematic_product_video():
         brand = (custom_brand or "").strip()
         if not brand and use_main_brand:
             brand = (st.session_state.get("brand") or "").strip()
-        main_prompt = build_cinematic_product_prompt(product=product_en, environment=environment_en, shot=shot, camera_move=camera_move, lens=lens, lighting=lighting, look=look, human_presence=human, interaction=interaction, model=model, duration=duration, brand=brand)
-        human_variant = build_product_plus_human_variant(product=product_en, environment=environment_en, shot=shot if human != "없음 (Product Only)" else "오버숄더 (Over-the-Shoulder)", camera_move=camera_move, lens=lens, lighting=lighting, look=look, interaction=interaction, model=model, duration=duration, brand=brand)
+        main_prompt = build_cinematic_product_prompt(
+            product=product_en, environment=environment_en, shot=shot, camera_move=camera_move,
+            lens=lens, lighting=lighting, look=look, human_presence=human, interaction=interaction,
+            model=model, duration=duration, brand=brand,
+        )
+        human_variant = build_product_plus_human_variant(
+            product=product_en, environment=environment_en,
+            shot=shot if human != "없음 (Product Only)" else "오버숄더 (Over-the-Shoulder)",
+            camera_move=camera_move, lens=lens, lighting=lighting, look=look,
+            interaction=interaction, model=model, duration=duration, brand=brand,
+        )
         st.session_state["cin_last_main"] = append_reference_to_prompt(main_prompt)
         st.session_state["cin_last_human"] = append_reference_to_prompt(human_variant)
         st.session_state["cin_product_en"] = product_en
@@ -116,7 +143,13 @@ def render_cinematic_product_video():
         with t2:
             st.code(st.session_state["cin_last_human"], language="text")
             base_app._clipboard_button("복사", st.session_state["cin_last_human"], key="copy_cinematic_human")
-        st.download_button("두 프롬프트 TXT 저장", data=("[CINEMATIC PRODUCT VIDEO]\n" + st.session_state["cin_last_main"] + "\n\n[PRODUCT + HUMAN VARIANT]\n" + st.session_state["cin_last_human"]).encode("utf-8"), file_name="HangeulDesign_CinematicProductVideo.txt", mime="text/plain", use_container_width=True)
+        st.download_button(
+            "두 프롬프트 TXT 저장",
+            data=("[CINEMATIC PRODUCT VIDEO]\n" + st.session_state["cin_last_main"] + "\n\n[PRODUCT + HUMAN VARIANT]\n" + st.session_state["cin_last_human"]).encode("utf-8"),
+            file_name="HangeulDesign_CinematicProductVideo.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
 
 
 def main():
@@ -125,13 +158,22 @@ def main():
     runtime_quality.reset_variant_counter()
     _install_reference_hooks()
     runtime_quality.render_theme_fix()
-    render_beginner_panel()
-    render_generator_panel()
-    render_reference_image_uploader()
-    st.caption("참조 이미지를 사용했다면 실제 생성 AI에서도 같은 이미지를 프롬프트와 함께 첨부하세요.")
+
+    # Shared controls stay in one sidebar while the two products switch from the top tabs.
     base_app.render_sidebar()
-    base_app.render_main()
-    render_cinematic_product_video()
+    with st.sidebar.expander("참조 이미지", expanded=False):
+        render_reference_image_uploader()
+        st.caption("참조 이미지를 사용했다면 실제 생성 AI에서도 같은 이미지를 프롬프트와 함께 첨부하세요.")
+
+    tab_hangeul, tab_cinematic = st.tabs(["한글 디자인", "시네마틱 디자인"])
+
+    with tab_hangeul:
+        render_beginner_panel()
+        render_generator_panel()
+        base_app.render_main()
+
+    with tab_cinematic:
+        render_cinematic_product_video()
 
 
 if __name__ == "__main__":
