@@ -35,7 +35,7 @@ echo Starting Hangeul Design - Cinematic Product Video Test...
 echo http://localhost:%PORT%
 echo.
 start "" "http://localhost:%PORT%"
-venv\Scripts\python -m streamlit run app_cinematic.py --server.address localhost --server.port %PORT%
+venv\Scripts\python -m streamlit run app_cinematic.py --server.address localhost --server.port %PORT% --server.headless true
 if errorlevel 1 goto fail
 endlocal
 exit /b 0
