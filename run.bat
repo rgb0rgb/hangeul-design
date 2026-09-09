@@ -2,6 +2,7 @@
 setlocal
 cd /d "%~dp0"
 set PORT=8504
+set URL=http://localhost:%PORT%
 
 if not exist "venv\Scripts\python.exe" (
     py -m venv venv
@@ -17,22 +18,24 @@ if errorlevel 1 (
 
 netstat -ano | findstr ":%PORT%" | findstr "LISTENING" >nul 2>nul
 if not errorlevel 1 (
-    echo [ERROR] Port %PORT% is already in use. Stop the existing app first.
+    echo [ERROR] Port %PORT% is already in use. Run stop.bat first.
     pause
     exit /b 1
 )
 
-start "Hangeul Design Server" /MIN cmd /c ""%CD%\venv\Scripts\python.exe" -m streamlit run "%CD%\app_reference.py" --server.address localhost --server.port %PORT% --server.headless true"
+start "Hangeul Design Server" /MIN "%CD%\venv\Scripts\python.exe" -m streamlit run "%CD%\app_reference.py" --server.address localhost --server.port %PORT% --server.headless true
+
 for /L %%I in (1,1,30) do (
-    powershell -NoProfile -Command "try { $r=Invoke-WebRequest -UseBasicParsing -TimeoutSec 1 http://localhost:%PORT%/_stcore/health; if($r.StatusCode -eq 200){exit 0}else{exit 1} } catch { exit 1 }" >nul 2>nul
+    powershell -NoProfile -Command "try { $r=Invoke-WebRequest -UseBasicParsing -TimeoutSec 1 '%URL%/_stcore/health'; if($r.StatusCode -eq 200){exit 0}else{exit 1} } catch { exit 1 }" >nul 2>nul
     if not errorlevel 1 goto ready
     timeout /t 1 /nobreak >nul
 )
 goto fail
 
 :ready
-powershell -NoProfile -Command "Start-Process 'http://localhost:%PORT%'" >nul 2>nul
-echo Hangeul Design ready: http://localhost:%PORT%
+echo Hangeul Design ready: %URL%
+rundll32 url.dll,FileProtocolHandler %URL%
+if errorlevel 1 start "" %URL%
 endlocal
 exit /b 0
 
