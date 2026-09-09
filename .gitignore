@@ -31,9 +31,11 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Local screenshots and temporary captures
-2026-08-31 154543.jpg
+# Local screenshots / temporary captures
+*.tmp
+*.log
 
 # Reports exported from the app
 HangeulDesign_report.txt
 DesignPD_report.txt
+HangeulDesign_CinematicProductVideo.txt
