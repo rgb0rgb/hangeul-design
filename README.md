@@ -6,13 +6,14 @@ Hangeul Design은 이미지, 영상, 3D 생성형 AI 작업을 위한 **한국�
 
 ## v1.2 개발 기능
 
-- **초보자 자동 설정:** `무엇을 만들지 / 어디에 쓸지 / 어떤 느낌인지` 세 가지 답으로 작업 모드, 스타일, 화면비, 조명 등을 자동 추천합니다.
+- **단일 통합 화면:** `run.bat` 하나로 실행하며 상단의 `한글 디자인 / 시네마틱 디자인` 탭으로 전환합니다.
+- **초보자 자동 설정:** `무엇을 만들지 / 어디에 쓸지 / 어떤 느낌인지` 세 가지 답으로 작업 모드, 스타일, 화면비, 조명 등을 자동 추천합니다. pending 적용 방식으로 UI 배치 순서와 무관하게 안전하게 반영합니다.
 - **이미지 생성 AI 컴파일러:** ChatGPT/Gemini, Midjourney, Stable Diffusion/FLUX에 맞춰 프롬프트 문법을 변환합니다.
 - **영상 생성 AI 컴파일러:** General, Veo, Sora, Runway, Kling용 실행 지시와 화면비를 메인 영상 프롬프트에 적용합니다.
-- **화면비 직접 선택:** 1:1, 16:9, 9:16, 4:5, 3:2, 21:9를 생성 AI 설정에서 직접 바꿀 수 있습니다.
+- **화면비 직접 선택:** 1:1, 16:9, 9:16, 4:5, 3:2, 21:9를 직접 바꿀 수 있습니다.
 - **한글 타이포그래피 충돌 방지:** 의도한 한글이 있을 때 blanket `exclude text/letters` 금지어를 제거합니다.
-- **한글 기대 관리:** 생성 모델의 한글 렌더링이 불안정할 수 있으므로, 정확한 문구가 중요하면 글자 없는 비주얼을 생성한 뒤 Canva·미리캔버스 등에서 한글을 얹는 방법을 안내합니다.
-- **참조 이미지:** 컴파일 후 참조 지시를 붙여 네거티브 추출과 충돌하지 않으며, 실제 생성 AI에서도 같은 이미지를 함께 첨부하도록 안내합니다.
+- **한글 기대 관리:** 정확한 문구가 중요하면 글자 없는 비주얼을 생성한 뒤 Canva·미리캔버스 등에서 한글을 얹는 방법을 안내합니다.
+- **참조 이미지:** 참조 지시를 컴파일러 본문에 포함시킨 뒤 Midjourney의 `--ar/--no` 등 최종 파라미터를 맨 끝에 배치합니다. 실제 생성 AI에서도 같은 이미지를 함께 첨부해야 합니다.
 
 ## 주요 기능
 
@@ -29,28 +30,21 @@ Hangeul Design은 이미지, 영상, 3D 생성형 AI 작업을 위한 **한국�
 
 ## 실행
 
-Windows PowerShell에서 프로젝트 폴더로 이동한 뒤 실행합니다.
-
-기본 Hangeul Design (8504):
+Windows PowerShell에서 프로젝트 폴더로 이동한 뒤 하나만 실행합니다.
 
 ```powershell
 .\run.bat
 ```
 
-Cinematic 통합 버전 (8505):
-
-```powershell
-.\run_cinematic.bat
-```
+기본 주소: `http://localhost:8504`
 
 종료:
 
 ```powershell
 .\stop.bat
-.\stop_cinematic.bat
 ```
 
-두 실행 화면 모두 초보자 자동 설정, 이미지/영상 생성 AI 선택, 화면비 선택, 참조 이미지 기능을 제공합니다. Cinematic 버전에는 별도의 Cinematic Product Video 도구가 추가됩니다.
+실행 후 상단 탭에서 `한글 디자인`과 `시네마틱 디자인`을 선택합니다. 별도 8505 서버나 `run_cinematic.bat`은 사용하지 않습니다.
 
 ## 설치
 
@@ -78,7 +72,7 @@ python -m pip install -r requirements.txt
 python -m pytest -q
 ```
 
-GitHub Actions에서는 Ubuntu에서 회귀 테스트와 Streamlit `AppTest`를 실행합니다.
+GitHub Actions에서는 최소 Streamlit 1.55와 지원 최신 버전에서 통합 앱을 실행하고, 초보자 3문항을 입력한 뒤 실제 자동설정 버튼을 클릭하여 `숏폼 바이럴 / 숏폼 영상 / 9:16` 상태가 반영되는지 검사합니다.
 
 ## 프로젝트 구조
 
@@ -87,8 +81,7 @@ hangeul-design/
 ├─ .github/workflows/smoke-test.yml
 ├─ tests/test_prompt_quality.py
 ├─ app.py
-├─ app_reference.py
-├─ app_cinematic.py
+├─ app_cinematic.py        # run.bat이 실행하는 단일 통합 진입점
 ├─ beginner_mode.py
 ├─ prompt_compiler.py
 ├─ cinematic_product.py
@@ -97,7 +90,6 @@ hangeul-design/
 ├─ launcher.py
 ├─ requirements.txt
 ├─ run.bat / stop.bat
-├─ run_cinematic.bat / stop_cinematic.bat
 ├─ LICENSE
 ├─ README.md
 └─ CHANGELOG.md
