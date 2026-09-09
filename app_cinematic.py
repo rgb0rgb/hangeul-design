@@ -13,6 +13,7 @@ from cinematic_product import (
     build_cinematic_product_prompt,
     build_product_plus_human_variant,
 )
+from reference_image import append_reference_to_prompt, has_reference_image, reference_status_text
 
 
 def _translate(text: str) -> str:
@@ -29,6 +30,8 @@ def render_cinematic_product_video():
     st.caption(
         "제품을 단순히 움직이는 프롬프트가 아니라, 쇼트·렌즈·카메라 이동·조명·사람의 제품 사용까지 조합한 광고 영상 프롬프트를 만듭니다."
     )
+    if has_reference_image():
+        st.info(reference_status_text() + " · 제품/인물 정체성 및 영상 연속성 지시가 자동 추가됩니다.")
 
     with st.expander("촬영 옵션 설정", expanded=True):
         c1, c2 = st.columns(2)
@@ -80,11 +83,11 @@ def render_cinematic_product_video():
     generate = st.button("시네마틱 제품 영상 프롬프트 생성", type="primary", use_container_width=True)
 
     if generate:
-        if not (product_kr or "").strip():
-            st.warning("제품을 입력하세요.")
+        if not (product_kr or "").strip() and not has_reference_image():
+            st.warning("제품을 입력하거나 참조 이미지를 첨부하세요.")
             return
 
-        product_en = _translate(product_kr)
+        product_en = _translate(product_kr) if (product_kr or "").strip() else "the primary product shown in the uploaded reference image"
         environment_en = _translate(environment_kr)
         brand = (custom_brand or "").strip()
         if not brand and use_main_brand:
@@ -117,6 +120,8 @@ def render_cinematic_product_video():
             duration=duration,
             brand=brand,
         )
+        main_prompt = append_reference_to_prompt(main_prompt)
+        human_variant = append_reference_to_prompt(human_variant)
 
         st.session_state["cin_last_main"] = main_prompt
         st.session_state["cin_last_human"] = human_variant
