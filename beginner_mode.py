@@ -89,6 +89,9 @@ def apply_recommendation(settings: Dict[str, object], subject: str) -> None:
 
 
 def render_beginner_panel() -> None:
+    # IMPORTANT: render this panel before base_app.render_sidebar(). The Apply button
+    # writes widget-backed session-state keys; Streamlit forbids mutating those keys
+    # after the corresponding sidebar widgets have already been instantiated.
     st.markdown("## 초보자 자동 설정")
     st.caption("세 가지만 답하면 작업 모드·스타일·화면비·조명 등을 먼저 추천합니다. 아래 세부 설정에서 언제든 바꿀 수 있습니다.")
     with st.container(border=True):
@@ -108,6 +111,4 @@ def render_beginner_panel() -> None:
             else:
                 settings = recommend_settings(subject, destination, visual_goal)
                 apply_recommendation(settings, subject)
-                st.success(
-                    f"자동 설정 완료 · {settings['work_mode']} · {settings['image_style']} · {settings['aspect']}"
-                )
+                st.success(f"자동 설정 완료 · {settings['work_mode']} · {settings['image_style']} · {settings['aspect']}")
