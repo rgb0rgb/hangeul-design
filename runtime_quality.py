@@ -1,8 +1,7 @@
-"""Runtime quality fixes shared by Hangeul Design entry points.
+"""Runtime quality layer for Hangeul Design.
 
-This module keeps the original UI intact while correcting state timing,
-prompt diversity, translation behavior, save reporting, custom expert styles,
-and clipboard escaping.
+The layer is deliberately idempotent: Streamlit reruns may execute entry scripts
+many times, but the original prompt builders are captured exactly once.
 """
 
 from __future__ import annotations
@@ -11,7 +10,6 @@ import hashlib
 import html
 import json
 import os
-import random
 import time
 import urllib.parse
 import urllib.request
@@ -41,11 +39,10 @@ def _stable_seed(*parts: Any) -> int:
     return int(hashlib.sha256(raw).hexdigest()[:12], 16)
 
 
-def _next_variant(subject: str, preset: str, work_mode: str) -> tuple[int, tuple[str, str, str, str]]:
+def _next_variant(subject: str, preset: str, work_mode: str):
     global _variant_counter
     idx = _variant_counter % len(VARIANT_AXES)
     _variant_counter += 1
-    # Stable rotation per input while keeping each batch visibly different.
     offset = _stable_seed(subject, preset, work_mode) % len(VARIANT_AXES)
     real_idx = (idx + offset) % len(VARIANT_AXES)
     return real_idx + 1, VARIANT_AXES[real_idx]
@@ -56,27 +53,42 @@ def reset_variant_counter() -> None:
     _variant_counter = 0
 
 
+def build_variant_direction(
+    variant_number: int,
+    axis,
+    lighting: str,
+    camera: str,
+    palette_is_user_defined: bool,
+    quick_mode: bool,
+) -> str:
+    """Build one non-conflicting variant instruction.
+
+    Composition always varies because there is no composition selector.
+    Lighting/camera vary only when the user selected AI Auto. Palette varies only
+    when it is not explicitly supplied by the user (quick mode has no palette UI).
+    """
+    comp, light, camera_axis, palette = axis
+    parts = [f"composition variation: {comp}"]
+    if lighting == "AI 자동":
+        parts.append(f"lighting variation: {light}")
+    if camera == "AI 자동":
+        parts.append(f"camera variation: {camera_axis}")
+    if quick_mode or not palette_is_user_defined:
+        parts.append(f"palette variation: {palette}")
+    return f"Variant {variant_number}: " + "; ".join(parts) + "."
+
+
 def apply_pending_favorite(base_app) -> None:
     item = st.session_state.pop(_PENDING_FAVORITE, None)
     if not item:
         return
-    base_app._apply_preset_defaults(item.get("preset", st.session_state.get("preset", "한글 디자인")))
     mapping = {
-        "preset": "preset",
-        "work_mode": "work_mode",
-        "style": "image_style",
-        "lighting": "lighting",
-        "camera": "camera",
-        "aspect": "aspect",
-        "pop3d": "pop3d",
-        "intensity": "intensity",
-        "brand": "brand",
-        "prompt_engine": "prompt_engine",
-        "expert_subject": "expert_subject",
-        "hangul_text": "hangul_text",
-        "palette": "palette",
-        "continuity": "continuity",
-        "detail_density": "detail_density",
+        "preset": "preset", "work_mode": "work_mode", "style": "image_style",
+        "lighting": "lighting", "camera": "camera", "aspect": "aspect",
+        "pop3d": "pop3d", "intensity": "intensity", "brand": "brand",
+        "prompt_engine": "prompt_engine", "expert_subject": "expert_subject",
+        "hangul_text": "hangul_text", "palette": "palette",
+        "continuity": "continuity", "detail_density": "detail_density",
     }
     for src, dst in mapping.items():
         if src in item and item[src] is not None:
@@ -85,12 +97,19 @@ def apply_pending_favorite(base_app) -> None:
 
 
 def install(base_app) -> None:
-    """Install release fixes onto the original app module before rendering widgets."""
-    original_quick = base_app._build_prompts
-    original_expert = base_app._build_expert_prompt
+    """Install fixes exactly once and restore stable wrappers on every rerun."""
+    if getattr(base_app, "_hd_quality_installed", False):
+        base_app._build_prompts = base_app._hd_quality_build_prompts
+        base_app._build_expert_prompt = base_app._hd_quality_build_expert_prompt
+        return
+
+    base_app._hd_original_build_prompts = base_app._build_prompts
+    base_app._hd_original_build_expert_prompt = base_app._build_expert_prompt
+    base_app._hd_original_tip_for = base_app._tip_for
+    original_quick = base_app._hd_original_build_prompts
+    original_expert = base_app._hd_original_build_expert_prompt
 
     def queue_favorite(item: Dict[str, Any]):
-        # Do not mutate widget-bound keys after widgets are instantiated.
         st.session_state[_PENDING_FAVORITE] = dict(item)
 
     def save_favorites(items):
@@ -111,12 +130,9 @@ def install(base_app) -> None:
             "id": base_app._fav_id(),
             "name": f"{plan.get('preset','')}/{plan.get('work_mode','')}/{plan.get('style','')}",
             "created": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "preset": plan.get("preset"),
-            "work_mode": plan.get("work_mode"),
-            "style": plan.get("style"),
-            "lighting": plan.get("lighting"),
-            "camera": plan.get("camera"),
-            "aspect": plan.get("aspect"),
+            "preset": plan.get("preset"), "work_mode": plan.get("work_mode"),
+            "style": plan.get("style"), "lighting": plan.get("lighting"),
+            "camera": plan.get("camera"), "aspect": plan.get("aspect"),
             "pop3d": plan.get("pop3d", False),
             "intensity": plan.get("intensity", st.session_state.get("intensity", 55)),
             "brand": plan.get("brand", ""),
@@ -139,7 +155,6 @@ def install(base_app) -> None:
         t = (text or "").strip()
         if not t:
             return "", True
-        # Do not send plain ASCII/English text to the translation endpoint.
         if all(ord(ch) < 128 for ch in t):
             return t, True
         cache = st.session_state.setdefault("_hd_translation_cache", {})
@@ -153,8 +168,7 @@ def install(base_app) -> None:
             with urllib.request.urlopen(req, timeout=6) as resp:
                 raw = resp.read().decode("utf-8", errors="ignore")
             data = json.loads(raw)
-            out = "".join(seg[0] for seg in data[0] if seg and isinstance(seg, list) and seg)
-            out = (out or "").strip()
+            out = "".join(seg[0] for seg in data[0] if seg and isinstance(seg, list) and seg).strip()
             if out:
                 cache[cache_key] = out
                 return out, True
@@ -163,10 +177,9 @@ def install(base_app) -> None:
         return t, False
 
     def safe_clipboard(label: str, text: str, key: str):
-        # JSON encoding prevents JS template-literal / ${...} injection.
-        js_text = json.dumps(text or "", ensure_ascii=False)
+        payload = json.dumps(text or "", ensure_ascii=False)
         safe_label = html.escape(label or "복사")
-        safe_id = "".join(ch for ch in key if ch.isalnum() or ch in "_-" )[:80] or "copy"
+        safe_id = "".join(ch for ch in key if ch.isalnum() or ch in "_-")[:80] or "copy"
         block = f"""
         <div style='margin-top:6px'>
           <button id='{safe_id}' style='border:1px solid rgba(49,51,63,.18);border-radius:10px;padding:8px 10px;background:var(--secondary-background-color,#fff);cursor:pointer'>{safe_label}</button>
@@ -175,7 +188,7 @@ def install(base_app) -> None:
         <script>
         const btn=document.getElementById({json.dumps(safe_id)});
         const msg=document.getElementById({json.dumps(safe_id + '_msg')});
-        const payload={js_text};
+        const payload={payload};
         btn.addEventListener('click', async()=>{{
           try{{await navigator.clipboard.writeText(payload);msg.textContent='Copied';}}
           catch(e){{msg.textContent='Copy failed';}}
@@ -188,7 +201,7 @@ def install(base_app) -> None:
     def tip_for(preset: str) -> str:
         if preset == "한글 디자인":
             return "Tip: Keep Hangul structure, spacing, and layout hierarchy explicit; verify final typography in a design tool."
-        return base_app._tip_for_original(preset) if hasattr(base_app, "_tip_for_original") else "Tip: Keep the visual direction specific and production-oriented."
+        return base_app._hd_original_tip_for(preset)
 
     def quick_with_variation(*args, **kwargs):
         image_prompt, video_prompt, d3_prompt = original_quick(*args, **kwargs)
@@ -196,34 +209,48 @@ def install(base_app) -> None:
         preset = kwargs.get("preset", "")
         work_mode = kwargs.get("work_mode", "")
         n, axis = _next_variant(subject, preset, work_mode)
-        comp, light, camera, palette = axis
-        direction = f" Variant {n}: {comp}; {light}; {camera}; {palette}."
-        return image_prompt + direction, video_prompt + direction, d3_prompt + direction
+        direction = build_variant_direction(
+            n, axis,
+            lighting=kwargs.get("lighting", "AI 자동"),
+            camera=kwargs.get("camera", "AI 자동"),
+            palette_is_user_defined=False,
+            quick_mode=True,
+        )
+        prefix = direction + " "
+        return prefix + image_prompt, prefix + video_prompt, prefix + d3_prompt
 
     def expert_with_variation(*args, **kwargs):
-        if kwargs.get("style") == "직접입력":
-            kwargs = dict(kwargs)
-            kwargs["style"] = (st.session_state.get("style_custom") or "").strip() or "custom art direction"
-        image_prompt, video_prompt, d3_prompt, blueprint = original_expert(*args, **kwargs)
-        subject = kwargs.get("subject_en", args[0] if args else "")
-        preset = kwargs.get("preset", "")
-        work_mode = kwargs.get("work_mode", "")
+        call_kwargs = dict(kwargs)
+        if call_kwargs.get("style") == "직접입력":
+            call_kwargs["style"] = (st.session_state.get("style_custom") or "").strip() or "custom art direction"
+        image_prompt, video_prompt, d3_prompt, blueprint = original_expert(*args, **call_kwargs)
+        subject = call_kwargs.get("subject_en", args[0] if args else "")
+        preset = call_kwargs.get("preset", "")
+        work_mode = call_kwargs.get("work_mode", "")
         n, axis = _next_variant(subject, preset, work_mode)
-        comp, light, camera, palette = axis
-        direction = f"Variant {n}: {comp}; {light}; {camera}; {palette}."
-        blueprint = blueprint + "\n" + direction
-        return image_prompt + " " + direction, video_prompt + " " + direction, d3_prompt + " " + direction, blueprint
+        user_palette = bool((st.session_state.get("palette") or "").strip())
+        direction = build_variant_direction(
+            n, axis,
+            lighting=call_kwargs.get("lighting", "AI 자동"),
+            camera=call_kwargs.get("camera", "AI 자동"),
+            palette_is_user_defined=user_palette,
+            quick_mode=False,
+        )
+        blueprint = direction + "\n" + blueprint
+        prefix = direction + " "
+        return prefix + image_prompt, prefix + video_prompt, prefix + d3_prompt, blueprint
 
-    if not hasattr(base_app, "_tip_for_original"):
-        base_app._tip_for_original = base_app._tip_for
     base_app._apply_favorite = queue_favorite
     base_app._save_favorites = save_favorites
     base_app._save_current_as_favorite = save_current
     base_app.translate_google = translate_google
     base_app._clipboard_button = safe_clipboard
     base_app._tip_for = tip_for
+    base_app._hd_quality_build_prompts = quick_with_variation
+    base_app._hd_quality_build_expert_prompt = expert_with_variation
     base_app._build_prompts = quick_with_variation
     base_app._build_expert_prompt = expert_with_variation
+    base_app._hd_quality_installed = True
 
 
 def render_theme_fix() -> None:
