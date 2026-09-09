@@ -1,49 +1,43 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-
-set PORT=8504
+set PORT=8505
 
 if not exist "venv\Scripts\python.exe" (
-    echo [SETUP] Creating virtual environment...
     py -m venv venv
     if errorlevel 1 goto fail
 )
 
-venv\Scripts\python -c "import streamlit" >nul 2>nul
+venv\Scripts\python -c "import streamlit,sys; sys.exit(0 if tuple(map(int,streamlit.__version__.split('.')[:2])) >= (1,55) else 1)" >nul 2>nul
 if errorlevel 1 (
-    echo [SETUP] Installing requirements...
-    venv\Scripts\python -m pip install --upgrade pip
-    venv\Scripts\python -m pip install -r requirements.txt
+    echo [SETUP] Installing supported dependencies...
+    venv\Scripts\python -m pip install --upgrade -r requirements.txt
     if errorlevel 1 goto fail
 )
 
 netstat -ano | findstr ":%PORT%" | findstr "LISTENING" >nul 2>nul
 if not errorlevel 1 (
-    echo.
-    echo [INFO] Port %PORT% is already in use.
-    echo Open http://localhost:%PORT%
-    echo.
-    start "" "http://localhost:%PORT%"
+    echo [ERROR] Cinematic port %PORT% is already in use. Stop the existing cinematic app first.
     pause
-    endlocal
-    exit /b 0
+    exit /b 1
 )
 
-echo.
-echo Starting Hangeul Design - Cinematic Product Video Test...
-echo http://localhost:%PORT%
-echo.
+start "Hangeul Design Cinematic Server" /B venv\Scripts\python -m streamlit run app_cinematic.py --server.address localhost --server.port %PORT% --server.headless true
+for /L %%I in (1,1,30) do (
+    powershell -NoProfile -Command "try { $r=Invoke-WebRequest -UseBasicParsing -TimeoutSec 1 http://localhost:%PORT%/_stcore/health; if($r.StatusCode -eq 200){exit 0}else{exit 1} } catch { exit 1 }" >nul 2>nul
+    if not errorlevel 1 goto ready
+    timeout /t 1 /nobreak >nul
+)
+goto fail
+
+:ready
 start "" "http://localhost:%PORT%"
-venv\Scripts\python -m streamlit run app_cinematic.py --server.address localhost --server.port %PORT% --server.headless true
-if errorlevel 1 goto fail
+echo Cinematic ready: http://localhost:%PORT%
 endlocal
 exit /b 0
 
 :fail
-echo.
-echo [ERROR] Hangeul Design failed to start.
-echo Check Python, network connection, and the error message above.
+echo [ERROR] Hangeul Design Cinematic failed to start.
 pause
 endlocal
 exit /b 1
