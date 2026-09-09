@@ -22,10 +22,11 @@ if not errorlevel 1 (
     exit /b 1
 )
 
-start "Hangeul Design Server" /MIN "%CD%\venv\Scripts\python.exe" -m streamlit run "%CD%\app_reference.py" --server.address localhost --server.port %PORT% --server.headless false
+start "Hangeul Design" /MIN "%CD%\venv\Scripts\python.exe" -m streamlit run "%CD%\app_cinematic.py" --server.address localhost --server.port %PORT% --server.headless false
 if errorlevel 1 goto fail
 
 echo Hangeul Design starting on http://localhost:%PORT%
+echo One app: Hangeul Design / Cinematic Design
 endlocal
 exit /b 0
 
