@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_python_sources_parse():
-    for name in ["app.py", "app_reference.py", "app_cinematic.py", "cinematic_product.py", "reference_image.py", "runtime_quality.py", "launcher.py", "prompt_compiler.py", "beginner_mode.py"]:
+    for name in ["app.py", "app_cinematic.py", "cinematic_product.py", "reference_image.py", "runtime_quality.py", "launcher.py", "prompt_compiler.py", "beginner_mode.py"]:
         ast.parse((ROOT / name).read_text(encoding="utf-8"))
 
 
@@ -46,6 +46,7 @@ def test_reference_suffix_cannot_break_negative_extraction():
     out = prompt_compiler.compile_image_prompt(src, "Midjourney", "4:5")
     assert "--no text watermark" in out
     assert "REFERENCE IMAGE CONTROL" in out
+    assert out.index("REFERENCE IMAGE CONTROL") < out.index("--ar 4:5")
 
 
 def test_sd_compiler_separates_negative_prompt():
