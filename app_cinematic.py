@@ -2,7 +2,7 @@ import streamlit as st
 
 import app as base_app
 import runtime_quality
-from beginner_mode import render_beginner_panel
+from beginner_mode import apply_pending_recommendation, render_beginner_panel
 from cinematic_product import (
     CAMERA_MOVE_OPTIONS, HUMAN_PRESENCE_OPTIONS, INTERACTION_OPTIONS, LENS_OPTIONS,
     LIGHTING_OPTIONS as CINEMATIC_LIGHTING_OPTIONS, LOOK_OPTIONS, MODEL_OPTIONS,
@@ -40,9 +40,11 @@ def _compile_video(prompt: str) -> str:
 
 def _build_prompts_with_reference(*args, **kwargs):
     image_prompt, video_prompt, d3_prompt = _original_build_prompts(*args, **kwargs)
+    # Reference text must be inside the body before compilation. Midjourney terminal
+    # parameters (--ar/--no) therefore remain at the true end of the prompt.
     return (
-        append_reference_to_prompt(_compile_image(image_prompt)),
-        append_reference_to_prompt(_compile_video(video_prompt)),
+        _compile_image(append_reference_to_prompt(image_prompt)),
+        _compile_video(append_reference_to_prompt(video_prompt)),
         append_reference_to_prompt(d3_prompt),
     )
 
@@ -52,8 +54,8 @@ def _build_expert_with_reference(*args, **kwargs):
     if has_reference_image():
         blueprint += "\nReference image: attached reference is active; preserve/apply it according to the selected reference mode."
     return (
-        append_reference_to_prompt(_compile_image(image_prompt)),
-        append_reference_to_prompt(_compile_video(video_prompt)),
+        _compile_image(append_reference_to_prompt(image_prompt)),
+        _compile_video(append_reference_to_prompt(video_prompt)),
         append_reference_to_prompt(d3_prompt),
         blueprint,
     )
@@ -119,17 +121,8 @@ def render_cinematic_product_video():
         brand = (custom_brand or "").strip()
         if not brand and use_main_brand:
             brand = (st.session_state.get("brand") or "").strip()
-        main_prompt = build_cinematic_product_prompt(
-            product=product_en, environment=environment_en, shot=shot, camera_move=camera_move,
-            lens=lens, lighting=lighting, look=look, human_presence=human, interaction=interaction,
-            model=model, duration=duration, brand=brand,
-        )
-        human_variant = build_product_plus_human_variant(
-            product=product_en, environment=environment_en,
-            shot=shot if human != "없음 (Product Only)" else "오버숄더 (Over-the-Shoulder)",
-            camera_move=camera_move, lens=lens, lighting=lighting, look=look,
-            interaction=interaction, model=model, duration=duration, brand=brand,
-        )
+        main_prompt = build_cinematic_product_prompt(product=product_en, environment=environment_en, shot=shot, camera_move=camera_move, lens=lens, lighting=lighting, look=look, human_presence=human, interaction=interaction, model=model, duration=duration, brand=brand)
+        human_variant = build_product_plus_human_variant(product=product_en, environment=environment_en, shot=shot if human != "없음 (Product Only)" else "오버숄더 (Over-the-Shoulder)", camera_move=camera_move, lens=lens, lighting=lighting, look=look, interaction=interaction, model=model, duration=duration, brand=brand)
         st.session_state["cin_last_main"] = append_reference_to_prompt(main_prompt)
         st.session_state["cin_last_human"] = append_reference_to_prompt(human_variant)
         st.session_state["cin_product_en"] = product_en
@@ -143,35 +136,29 @@ def render_cinematic_product_video():
         with t2:
             st.code(st.session_state["cin_last_human"], language="text")
             base_app._clipboard_button("복사", st.session_state["cin_last_human"], key="copy_cinematic_human")
-        st.download_button(
-            "두 프롬프트 TXT 저장",
-            data=("[CINEMATIC PRODUCT VIDEO]\n" + st.session_state["cin_last_main"] + "\n\n[PRODUCT + HUMAN VARIANT]\n" + st.session_state["cin_last_human"]).encode("utf-8"),
-            file_name="HangeulDesign_CinematicProductVideo.txt",
-            mime="text/plain",
-            use_container_width=True,
-        )
+        st.download_button("두 프롬프트 TXT 저장", data=("[CINEMATIC PRODUCT VIDEO]\n" + st.session_state["cin_last_main"] + "\n\n[PRODUCT + HUMAN VARIANT]\n" + st.session_state["cin_last_human"]).encode("utf-8"), file_name="HangeulDesign_CinematicProductVideo.txt", mime="text/plain", use_container_width=True)
 
 
 def main():
     base_app._ss_init()
+    # Pending writes happen before sidebar/generator widgets exist. The beginner
+    # panel can now move in the layout without reintroducing Streamlit key errors.
+    apply_pending_recommendation()
     runtime_quality.apply_pending_favorite(base_app)
     runtime_quality.reset_variant_counter()
     _install_reference_hooks()
     runtime_quality.render_theme_fix()
 
-    # Shared controls stay in one sidebar while the two products switch from the top tabs.
     base_app.render_sidebar()
     with st.sidebar.expander("참조 이미지", expanded=False):
         render_reference_image_uploader()
         st.caption("참조 이미지를 사용했다면 실제 생성 AI에서도 같은 이미지를 프롬프트와 함께 첨부하세요.")
 
     tab_hangeul, tab_cinematic = st.tabs(["한글 디자인", "시네마틱 디자인"])
-
     with tab_hangeul:
         render_beginner_panel()
         render_generator_panel()
         base_app.render_main()
-
     with tab_cinematic:
         render_cinematic_product_video()
 
